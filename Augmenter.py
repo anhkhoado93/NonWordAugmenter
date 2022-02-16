@@ -1,5 +1,5 @@
 from typing import List, Union, Any
-
+import re
 import numpy as np
 import nlpaug.augmenter.char as nac
 import numpy.random as random
@@ -556,3 +556,127 @@ class MyRandomAugmenter(nac.CharAugmenter):
             results.append(result)
 
         return ' '.join(results)
+
+class WhitespaceAugmenter(nac.CharAugmenter):
+    def __init__(self, name='WhitespaceAugmenter', min_char=2, aug_char_p=0.3,
+                 aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
+                 stopwords=None, verbose=0, stopwords_regex=None):
+        super().__init__(
+            name=name, action="substitute", min_char=min_char, aug_char_min=1,
+            aug_char_max=10, aug_char_p=aug_char_p, aug_word_min=aug_word_min,
+            aug_word_max=aug_word_max, aug_word_p=aug_word_p, tokenizer=tokenizer,
+            reverse_tokenizer=reverse_tokenizer, stopwords=stopwords, device='cpu',
+            verbose=verbose, stopwords_regex=stopwords_regex)
+        
+        self.eligibleCharacters = compositionChars
+
+    def substitute(self, data):
+        results = []
+        concat_word = []
+        tokens = self.tokenizer(data)
+
+        whitespaces = re.findall(" ", data)
+        aug_word_idxes = self._get_aug_idxes(whitespaces, self.aug_word_min, \
+                        self.aug_word_max, self.aug_word_p, Method.CHAR)
+
+        for whitespace_i, whitespace in enumerate(whitespaces):
+            if whitespace_i not in aug_word_idxes:
+                if tokens[whitespace_i] not in concat_word:
+                    if whitespace_i != len(whitespaces) - 1:
+                        results += [tokens[whitespace_i]]
+                    else:
+                        results += [tokens[whitespace_i], tokens[whitespace_i + 1]]
+                    continue
+                else:
+                    if whitespace_i == len(whitespaces) - 1:
+                        results += [tokens[whitespace_i + 1]]
+                    continue
+
+            if random.random() < self.aug_char_p:
+                if tokens[whitespace_i] not in concat_word:
+                    results += [tokens[whitespace_i] + tokens[whitespace_i + 1]]
+                    concat_word += [tokens[whitespace_i], tokens[whitespace_i + 1]]
+                else:
+                    results[-1] = results[-1] + tokens[whitespace_i + 1]
+                    concat_word += [tokens[whitespace_i + 1]]
+            else:
+                if whitespace_i != len(whitespaces) - 1:
+                    results += [tokens[whitespace_i]]                    
+                else:
+                    results += [tokens[whitespace_i], tokens[whitespace_i + 1]]   
+
+        return ' '.join(results)
+
+class WhitespaceAugmenter(nac.CharAugmenter):
+    def __init__(self, name='WhitespaceAugmenter', min_char=2, aug_char_p=0.3,
+                 aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
+                 stopwords=None, verbose=0, stopwords_regex=None):
+        super().__init__(
+            name=name, action="substitute", min_char=min_char, aug_char_min=1,
+            aug_char_max=10, aug_char_p=aug_char_p, aug_word_min=aug_word_min,
+            aug_word_max=aug_word_max, aug_word_p=aug_word_p, tokenizer=tokenizer,
+            reverse_tokenizer=reverse_tokenizer, stopwords=stopwords, device='cpu',
+            verbose=verbose, stopwords_regex=stopwords_regex)
+        
+        self.eligibleCharacters = compositionChars
+
+    def substitute(self, data):
+        results = []
+        concat_word = []
+        tokens = self.tokenizer(data)
+
+        whitespaces = re.findall(" ", data)
+        aug_word_idxes = self._get_aug_idxes(whitespaces, self.aug_word_min, \
+                        self.aug_word_max, self.aug_word_p, Method.CHAR)
+
+        for whitespace_i, whitespace in enumerate(whitespaces):
+            if whitespace_i not in aug_word_idxes:
+                if tokens[whitespace_i] not in concat_word:
+                    if whitespace_i != len(whitespaces) - 1:
+                        results += [tokens[whitespace_i]]
+                    else:
+                        results += [tokens[whitespace_i], tokens[whitespace_i + 1]]
+                    continue
+                else:
+                    if whitespace_i == len(whitespaces) - 1:
+                        results += [tokens[whitespace_i + 1]]
+                    continue
+
+            if random.random() < self.aug_char_p:
+                if tokens[whitespace_i] not in concat_word:
+                    results += [tokens[whitespace_i] + tokens[whitespace_i + 1]]
+                    concat_word += [tokens[whitespace_i], tokens[whitespace_i + 1]]
+                else:
+                    results[-1] = results[-1] + tokens[whitespace_i + 1]
+                    concat_word += [tokens[whitespace_i + 1]]
+            else:
+                if whitespace_i != len(whitespaces) - 1:
+                    results += [tokens[whitespace_i]]                    
+                else:
+                    results += [tokens[whitespace_i], tokens[whitespace_i + 1]]   
+
+        return ' '.join(results)
+
+class VowelAugment:
+    def __init__(self, tokenizer):
+        self.vowel = {
+            "iếu": "ếu",
+            "iều": "ều",
+            "oanh": "anh",
+        }
+        self.tokenizer = tokenizer
+
+    def replace_vowel(self, token):
+        for key, value in self.vowel.items():
+            if key in token:
+                token = re.sub(key, value, token)
+            elif value in token:
+                token = re.sub(value, key, token)
+        return token
+
+    def augment(self, text):
+        tokens = self.tokenizer(text)
+        result = []
+        for token in tokens:
+            result.append(self.replace_vowel(token))
+        return result
