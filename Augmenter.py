@@ -680,3 +680,53 @@ class VowelAugment:
         for token in tokens:
             result.append(self.replace_vowel(token))
         return result
+
+class MisspellVowelAugment(nac.CharAugmenter):
+    def __init__(self, name='MisspellVowelAugment', min_char=2, aug_char_p=0.3,
+                 aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
+                 stopwords=None, verbose=0, stopwords_regex=None):
+        super().__init__(
+            name=name, action="substitute", min_char=min_char, aug_char_min=1,
+            aug_char_max=10, aug_char_p=aug_char_p, aug_word_min=aug_word_min,
+            aug_word_max=aug_word_max, aug_word_p=aug_word_p, tokenizer=tokenizer,
+            reverse_tokenizer=reverse_tokenizer, stopwords=stopwords, device='cpu',
+            verbose=verbose, stopwords_regex=stopwords_regex)
+
+        self.model = {
+            "iếu": ["ếu"],
+            "iều": ["ều"],
+            "oanh": ["anh"],
+            "ếu": ["iếu"],
+            "ều": ["iều"],
+            "anh": ["oanh"]
+        }
+        self.eligibleCharacters = compositionChars
+
+    def _get_vowel(self, token):
+        for vowel in self.model.keys():
+            if vowel in token:
+                return vowel
+        return None
+
+    def substitute(self, data):
+        results = []
+        tokens = self.tokenizer(data)
+        aug_word_idxes = self._get_aug_idxes(tokens, self.aug_word_min, \
+                        self.aug_word_max, self.aug_word_p, Method.WORD)
+
+        for token_i, token in enumerate(tokens):
+            if token_i not in aug_word_idxes:
+                results += [token]
+                continue
+
+            if random.random() < self.aug_char_p:
+                vowel = self._get_vowel(token)
+                if vowel:
+                    token = re.sub(vowel, self.sample(self.model[vowel], 1)[0], token)
+                    results += [token]
+                else:
+                    results += [token]
+            else:
+                results += [token]
+
+        return ' '.join(results)
