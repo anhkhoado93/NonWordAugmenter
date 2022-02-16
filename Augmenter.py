@@ -51,8 +51,8 @@ class TypoAugmenter(nac.CharAugmenter):
         pass
 
     def _containsUO(self, word):
-        lstUO = ['ươ', 'ướ', 'ườ','ưở', 'ượ', "ưỡ"]
-        return any(map(lambda x: x in word, lstUO))
+        lstUO = ['ươ', 'ướ', 'ườ', 'ưở', 'ượ', "ưỡ"]
+        return any(map(lambda x: x in word.lower(), lstUO))
 
     def _insertBaseWord(self,listOfChars, index, baseWord):
         if len(baseWord) == 1:
@@ -75,30 +75,46 @@ class TypoAugmenter(nac.CharAugmenter):
             results.append(result)
         return ' '.join(results)
 
+    def recasing(self, telexChar, baseWord, compWord):
+        if telexChar.isupper():
+            baseWord=baseWord.upper()
+            compWord = [c.upper() for c in compWord]
+        elif not telexChar.islower():
+            first, second = baseWord
+            if telexChar[0].isupper(): first = first.upper()
+            if telexChar[1].isupper(): second = second.upper()
+            baseWord = first + second
+
+        return baseWord, compWord
+
     def generateWordError(self, word):
         # if not word[0].isalpha(): return word
         baseWord, comWord = "", []
         listOfChars = [w for w in word]
         index = -1
+        telexChar = ""
         if self._containsUO(word):
-            index = listOfChars.index('ư')
-            uoType = ''.join(listOfChars[index:index + 2])
-            if uoType not in ['ươ', 'ướ', 'ườ', 'ưở', 'ượ', "ưỡ"]:
+            index = listOfChars.index('ư') if "ư" in listOfChars\
+                                         else listOfChars.index('Ư')
+            
+            telexChar = ''.join(listOfChars[index:index + 2])
+            if telexChar.lower() not in ['ươ', 'ướ', 'ườ', 'ưở', 'ượ', "ưỡ"]:
                 return word
-            baseWord, compWord = self.typo[uoType][0], self.typo[uoType][1:]
+            baseWord, compWord = self.typo[telexChar.lower()][0], self.typo[telexChar.lower()][1:]
         else:
             index, telexChar = next(((i, c) for i, c in enumerate(listOfChars) \
-                                     if self._isTypo(c)), (None,None))
+                                     if self._isTypo(c.lower())), (None,None))
             if not telexChar: return ''.join(listOfChars)
-            baseWord, compWord = self.typo[telexChar][0], self.typo[telexChar][1:]
-
+            baseWord, compWord = self.typo[telexChar.lower()][0], self.typo[telexChar.lower()][1:]
         isDecomposedTwice = len(compWord) != 1 and self._randomDecomposeTwice()
         if not isDecomposedTwice:
             baseWord, compWord = self._getNewDecomposition(baseWord, compWord)
+        baseWord, compWord = self.recasing(telexChar, baseWord, compWord)
         self._insertBaseWord(listOfChars, index, baseWord)
-        self._insertRandom(listOfChars, index, baseWord, compWord[0])
-        if isDecomposedTwice:
-            self._insertRandom(listOfChars, index, baseWord, compWord[1])
+        if compWord:
+            self._insertRandom(listOfChars, index, baseWord, compWord[0])
+            if isDecomposedTwice:
+                self._insertRandom(listOfChars, index, baseWord, compWord[1])
         result = ''.join(listOfChars)
 
         return result
@@ -126,7 +142,7 @@ class AccentAugmenter(nac.CharAugmenter):
             verbose=verbose, stopwords_regex=stopwords_regex)
         self.eligibleCharacters = compositionChars
         self.model = {}
-
+x
     def substitute(self, data):
         results = []
         tokens = self.tokenizer(data)
@@ -141,11 +157,15 @@ class AccentAugmenter(nac.CharAugmenter):
             result = ''
             chars = self.token2char(token)
             for char in chars:
-                if char not in self.eligibleCharacters:
+                lchar = char.lower()
+                if lchar not in self.eligibleCharacters:
                     result += char
                     continue
                 if random.random() < self.aug_char_p:
-                    result += self.sample(self.model[char], 1)[0]
+                    eligible_replacement = self.model[lchar]
+                    if char.isupper():
+                        eligible_replacement = [c.upper() for c in eligible_replacement]
+                    result += self.sample(eligible_replacement, 1)[0]
                 else:
                     result += char
 
@@ -456,24 +476,14 @@ class WrongDialectAugmenter(AccentAugmenter):
 class MyKeyboardAug(nac.KeyboardAug):
     def __init__(self, name='MyKeyboardAug', aug_char_min=1, aug_char_max=10, aug_char_p=0.3,
                  aug_word_p=0.3, aug_word_min=1, aug_word_max=10, stopwords=None,
-                 tokenizer=None, reverse_tokenizer=None, include_special_char=True, include_numeric=True,
+                 tokenizer=None, reverse_tokenizer=None, include_special_char=False, include_numeric=False,
                  include_upper_case=True, lang="en", verbose=0, stopwords_regex=None, model_path=None,
                  min_char=4):
-        super().__init__(self, aug_char_min=1, aug_char_max=10, aug_char_p=0.3,
-                         aug_word_p=0.3, aug_word_min=1, aug_word_max=10, stopwords=None,
-                         tokenizer=None, reverse_tokenizer=None, include_special_char=True, include_numeric=True,
-                         include_upper_case=True, lang="en", verbose=0, stopwords_regex=None, model_path=None,
-                         min_char=4)
+        super().__init__(self, aug_char_min=aug_char_min, aug_char_max=aug_char_max, aug_char_p=aug_char_p,
+                         aug_word_p=aug_word_p, aug_word_min=aug_word_min, aug_word_max=aug_word_max, stopwords=stopwords,
+                         tokenizer=tokenizer, reverse_tokenizer=reverse_tokenizer, include_special_char=include_special_char, include_numeric=include_numeric,
+                         include_upper_case=include_upper_case, min_char=min_char)
         self.telexDecomposer = TelexAugmenter()
-
-    # def skip_aug(self, token_idxes, tokens):
-    #     results = []
-    #     for token_idx in token_idxes:
-    #         char = tokens[token_idx]
-    #         if char in self.model.model and len(self.model.predict(char)) > 0:
-    #             results.append(token_idx)
-    #
-    #     return results
 
     def substitute(self, data):
         if not data or not data.strip():
@@ -1125,7 +1135,7 @@ class MyRandomCharAugmenter(nac.CharAugmenter):
             if token_i not in aug_word_idxes:
                 results.append(token)
                 continue
-            token = self.telexDecomposer.generateWord(token)
+            token = self.telexDecomposer.generateWordError(token)
             action = np.random.choice(self.randomizers, p=self.pdf)
             result = action.augment(token)
             results.append(result)
