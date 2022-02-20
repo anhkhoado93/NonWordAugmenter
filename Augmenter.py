@@ -296,8 +296,10 @@ class AccentAugmenter(nac.CharAugmenter):
     def substitute(self, data):
         results = []
         tokens = self.tokenizer(data)
+        print('tokens: ', tokens)
+        
         aug_word_idxes = self._get_aug_idxes(tokens, self.aug_word_min, self.aug_word_max, self.aug_word_p, Method.WORD)
-
+        print(aug_word_idxes)
         for token_i, token in enumerate(tokens):
             if token_i not in aug_word_idxes:
                 results.append(token)
@@ -449,6 +451,10 @@ class WrongDialectAugmenter(AccentAugmenter):
             "ỡ": ["ở"],
             "ỷ": ["ỹ"],
             "ỹ": ["ỷ"],
+            "e": ["ê"],
+            "o": ["ô", "ơ"],
+            "u": ["ư"],
+            "a": ["ă","â"]
         }
         self.eligibleCharacters = self.model.keys()
 
