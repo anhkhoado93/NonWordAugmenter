@@ -836,3 +836,186 @@ class MisspellVowelAugment(nac.CharAugmenter):
                 results += [token]
 
         return ' '.join(results)
+
+###Spelling Augmenter
+
+finalConsonant = ['i','y','c','t','n','ng','nh']
+beginConsonant = ['x','s','d','đ','c','k','ngh','ng','gh','g','gi','d','r','tr','ch','n','l','kh','qu','u','v']
+class SpellingReplacementAugmenter(nac.CharAugmenter):
+    def __init__(self, name='SpellingReplacementAugmenter', min_char=2, aug_char_p=0.3,
+                 aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
+                 stopwords=None, verbose=0, stopwords_regex=None):
+        super().__init__(
+            name=name, action="substitute", min_char=min_char, aug_char_min=1,
+            aug_char_max=10, aug_char_p=aug_char_p, aug_word_min=aug_word_min,
+            aug_word_max=aug_word_max, aug_word_p=aug_word_p, tokenizer=tokenizer,
+            reverse_tokenizer=reverse_tokenizer, stopwords=stopwords, device='cpu',
+            verbose=verbose, stopwords_regex=stopwords_regex)
+        self.model_beginconsonant = {
+            "x": ["s"],
+            "s": ["x"],
+            "d": ['đ'],
+            "đ": ['d'],
+            "c": ["k"],
+            "k": ["c"],
+            "ngh": ["ng"],
+            "ng": ["ngh"],
+            "gh": ["g"],
+            "g": ["gh"],
+            "gi": ["d","r","v"],
+            "d": ["gi","r","v"],
+            "v": ["gi","d"],
+            "r": ["d","gi"],
+            "tr": ["ch"],
+            "ch": ["tr"],
+            "n": ["l"],
+            "l": ["n"],
+            "kh": ["k"],
+            "k": ["kh"],
+            "qu" : ["u"],
+            "u": ["qu"]
+        }
+        self.model_finalconsonant ={
+            "c": ["t"],
+            "t": ["c"],
+            "n": ["ng"],
+            "ng": ["n"],
+            "n": ["nh"],
+            "nh": ["n"],
+            "i": ["y"],
+            "y": ["i"]
+        }
+
+    def check_pos_consonant(self, word, mode):
+      if mode == 'begin':
+        if word[0] in beginConsonant or word[:2] in beginConsonant or word[:3] in beginConsonant:
+          return True
+      else:
+        if word[-1] in finalConsonant or word[-2:] in finalConsonant:
+          return True
+      return False
+
+    def substitute_data(self, data, mode):
+        tokens = self.tokenizer(data)
+        new_tokens = []
+        index_new_tokens = []
+        for token_i, token in enumerate(tokens): 
+          if self.check_pos_consonant(token, mode): 
+            new_tokens.append(token)
+            index_new_tokens.append(token_i)
+        if new_tokens:
+            aug_word_idxes = self._get_aug_idxes(new_tokens, self.aug_word_min, self.aug_word_max, self.aug_word_p, Method.WORD)
+            for token_i, token in enumerate(new_tokens):
+                if token_i not in aug_word_idxes:
+                    continue
+                result = ''
+              
+                if mode == 'begin':
+                    if token[:3] in beginConsonant:
+                        if np.random.random() < self.aug_char_p:
+                            result = self.sample(self.model_beginconsonant[token[:3]], 1)[0]
+                            result += token[3:]
+                    elif token[:2] in beginConsonant :
+                        if np.random.random() < self.aug_char_p:
+                            result = self.sample(self.model_beginconsonant[token[:2]], 1)[0]
+                            result += token[2:]
+                    else:
+                        if np.random.random() < self.aug_char_p: 
+                            result = self.sample(self.model_beginconsonant[token[0]], 1)[0]
+                            result += token[1:]
+                        
+                else:
+                    if token[-2:] in finalConsonant:
+                        if np.random.random() < self.aug_char_p:
+                            result = token[:-2] + self.sample(self.model_finalconsonant[token[-2:]], 1)[0]
+                    else:
+                        if np.random.random() < self.aug_char_p: 
+                            result = token[:-1] + self.sample(self.model_finalconsonant[token[-1]], 1)[0]
+
+                if result:
+                    tokens[index_new_tokens[token_i]]= result
+
+            return ' '.join(tokens)
+        return data
+
+
+class SpellingReplacementAugmenterBegin(SpellingReplacementAugmenter):
+    def __init__(self, name='SpellingReplacementAugmenterBegin', min_char=2, aug_char_p=0.3,
+                 aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
+                 stopwords=None, verbose=0, stopwords_regex=None):
+        super().__init__(
+            name=name, min_char=min_char, aug_char_p=aug_char_p, aug_word_min=aug_word_min,
+            aug_word_max=aug_word_max, aug_word_p=aug_word_p, tokenizer=tokenizer,
+            reverse_tokenizer=reverse_tokenizer, stopwords=stopwords,
+            verbose=verbose, stopwords_regex=stopwords_regex)
+    
+    def substitute(self, data):
+        return self.substitute_data(data, 'begin')
+
+class SpellingReplacementAugmenterFinal(SpellingReplacementAugmenter):
+    def __init__(self, name='SpellingReplacementAugmenterFinal', min_char=2, aug_char_p=0.3,
+                 aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
+                 stopwords=None, verbose=0, stopwords_regex=None):
+        super().__init__(
+            name=name, min_char=min_char, aug_char_p=aug_char_p, aug_word_min=aug_word_min,
+            aug_word_max=aug_word_max, aug_word_p=aug_word_p, tokenizer=tokenizer,
+            reverse_tokenizer=reverse_tokenizer, stopwords=stopwords,
+            verbose=verbose, stopwords_regex=stopwords_regex)
+    
+    def substitute(self, data):
+        return self.substitute_data(data, 'final')
+
+class SubsituteAugmenter(nac.CharAugmenter):
+    def __init__(self, name='SubsituteAugmenter', min_char=2, aug_char_p=0.3,
+                 aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
+                 stopwords=None, verbose=0, stopwords_regex=None):
+        super().__init__(
+            name=name, action="substitute", min_char=min_char, aug_char_min=1,
+            aug_char_max=10, aug_char_p=aug_char_p, aug_word_min=aug_word_min,
+            aug_word_max=aug_word_max, aug_word_p=aug_word_p, tokenizer=tokenizer,
+            reverse_tokenizer=reverse_tokenizer, stopwords=stopwords, device='cpu',
+            verbose=verbose, stopwords_regex=stopwords_regex)
+        self.eligibleCharacters = compositionChars
+        self.vowels = ['a','â','ă','e','ê','o','ô','ơ','u','ư','y']
+        self.consonants_1 = ['b', 'd', 'h', 'l', 'm', 'n', 'p', 'r', 's', 't', 'v', 'x', 'đ', 'g','k','c'] 
+        self.consonants_2 = ['tr', 'th', 'ch','ph', 'nh', 'kh','gi','qu','ng','gh']
+
+    def check_if_vowel(self, char):
+        return char in ['a','â','ă','e','ê','o','ô','ơ','u','ư','y']
+
+    def substitute(self, data):
+        results = []
+        tokens = self.tokenizer(data)
+        aug_word_idxes = self._get_aug_idxes(tokens, self.aug_word_min, \
+                        self.aug_word_max, self.aug_word_p, Method.WORD)
+
+        for token_i, token in enumerate(tokens):
+            if token_i not in aug_word_idxes:
+                results.append(token)
+                continue
+
+            result = ''
+            chars = self.token2char(token)
+            i = 0
+            while (i < len(chars)):
+                if random.random() < self.aug_char_p:
+                    if self.check_if_vowel(chars[i]):
+                        result += self.sample(self.vowels, 1)[0]
+                    else:
+                        if ''.join(chars[i:i+2]) in self.consonants_2:
+                            result += self.sample(self.consonants_2, 1)[0]
+                            i +=1
+                        elif chars[i] in self.consonants_1:
+                            result += self.sample(self.consonants_1, 1)[0]
+                        else:
+                            result += chars[i]
+                else:
+                    if ''.join(chars[i:i+2]) in self.consonants_2:
+                        result += ''.join(chars[i:i+2])
+                        i+=1
+                    else: result += chars[i]
+                i+=1
+
+            results.append(result)
+
+        return ' '.join(results)
