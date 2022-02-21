@@ -569,52 +569,52 @@ class MyRandomCharAugmenter(nac.CharAugmenter):
 
         return self.reverse_tokenizer(results)
 
-class RandomWordAugmenter(nac.CharAugmenter):
-    def __init__(self, vocabs,name='RandomWord_Aug',
-                 aug_word_min=1, aug_word_max=10, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
-                 stopwords=None, verbose=0, stopwords_regex=None, edit_distance=3):
-        super().__init__(action="substitute", name=name, aug_word_min=aug_word_min, aug_word_max=aug_word_max, aug_word_p=aug_word_p, stopwords=None,
-                 tokenizer=tokenizer, reverse_tokenizer=reverse_tokenizer, stopwords_regex=stopwords_regex, 
-                 verbose=0)
-        assert type(vocabs) == set and len(vocabs) != 0
-        assert edit_distance > 0
-        self.vocabs = vocabs
-        self.vocabs_list = list(vocabs)
-        self.edit_distance=edit_distance
+# class RandomWordAugmenter(nac.CharAugmenter):
+#     def __init__(self, vocabs,name='RandomWord_Aug',
+#                  aug_word_min=1, aug_word_max=10, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
+#                  stopwords=None, verbose=0, stopwords_regex=None, edit_distance=3):
+#         super().__init__(action="substitute", name=name, aug_word_min=aug_word_min, aug_word_max=aug_word_max, aug_word_p=aug_word_p, stopwords=None,
+#                  tokenizer=tokenizer, reverse_tokenizer=reverse_tokenizer, stopwords_regex=stopwords_regex, 
+#                  verbose=0)
+#         assert type(vocabs) == set and len(vocabs) != 0
+#         assert edit_distance > 0
+#         self.vocabs = vocabs
+#         self.vocabs_list = list(vocabs)
+#         self.edit_distance=edit_distance
         
-    def cal_edit_distance(self,s1, s2):
-        if len(s1) > len(s2):
-            s1, s2 = s2, s1
+#     def cal_edit_distance(self,s1, s2):
+#         if len(s1) > len(s2):
+#             s1, s2 = s2, s1
 
-        distances = range(len(s1) + 1)
-        for i2, c2 in enumerate(s2):
-            distances_ = [i2+1]
-            for i1, c1 in enumerate(s1):
-                if c1 == c2:
-                    distances_.append(distances[i1])
-                else:
-                    distances_.append(1 + min((distances[i1], 
-                            distances[i1 + 1], distances_[-1])))
-            distances = distances_
-        return distances[-1]
+#         distances = range(len(s1) + 1)
+#         for i2, c2 in enumerate(s2):
+#             distances_ = [i2+1]
+#             for i1, c1 in enumerate(s1):
+#                 if c1 == c2:
+#                     distances_.append(distances[i1])
+#                 else:
+#                     distances_.append(1 + min((distances[i1], 
+#                             distances[i1 + 1], distances_[-1])))
+#             distances = distances_
+#         return distances[-1]
 
-    def isED(self, word, another_word, edit_distance):
-        return self.cal_edit_distance(word, another_word) == edit_distance
+#     def isED(self, word, another_word, edit_distance):
+#         return self.cal_edit_distance(word, another_word) == edit_distance
 
-    def getRandomWordWithED(self, word):
-        result = ""
-        # TODO: is there a faster way 
-        confuse_list = []
-        random_words = np.random.choice(np.array(self.vocabs_list), 200)
-        for random_word in random_words:
-            if self.isED(word, random_word, self.edit_distance):
-                confuse_list.append(random_word)
-        if confuse_list: result = np.random.choice(confuse_list,1)[0]
-        return result
+#     def getRandomWordWithED(self, word):
+#         result = ""
+#         # TODO: is there a faster way 
+#         confuse_list = []
+#         random_words = np.random.choice(np.array(self.vocabs_list), 200)
+#         for random_word in random_words:
+#             if self.isED(word, random_word, self.edit_distance):
+#                 confuse_list.append(random_word)
+#         if confuse_list: result = np.random.choice(confuse_list,1)[0]
+#         return result
 
 class WhitespaceAugmenter(nac.CharAugmenter):
     def __init__(self, name='WhitespaceAugmenter', min_char=2, aug_char_p=0.3,
-                 aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
+                 aug_word_min=1, aug_word_max=2, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
                  stopwords=None, verbose=0, stopwords_regex=None):
         super().__init__(
             name=name, action="substitute", min_char=min_char, aug_char_min=1,
@@ -629,12 +629,11 @@ class WhitespaceAugmenter(nac.CharAugmenter):
         results = []
         concat_word = []
         tokens = self.tokenizer(data)
-
-        whitespaces = re.findall(" ", data)
+        whitespaces = re.findall(" ", ' '.join(tokens))
         aug_word_idxes = self._get_aug_idxes(whitespaces, self.aug_word_min, \
                         self.aug_word_max, self.aug_word_p, Method.CHAR)
-
-        for whitespace_i, whitespace in enumerate(whitespaces):
+        print(aug_word_idxes)
+        for whitespace_i, _ in enumerate(whitespaces):
             if whitespace_i not in aug_word_idxes:
                 if tokens[whitespace_i] not in concat_word:
                     if whitespace_i != len(whitespaces) - 1:
@@ -645,9 +644,16 @@ class WhitespaceAugmenter(nac.CharAugmenter):
                 else:
                     if whitespace_i == len(whitespaces) - 1:
                         results += [tokens[whitespace_i + 1]]
+                    continue            
+            elif tokens[whitespace_i] in string.punctuation or tokens[whitespace_i + 1] in string.punctuation:
+                if tokens[whitespace_i] in concat_word:
+                    # results += [tokens[whitespace_i + 1]]
                     continue
-
-            if random.random() < self.aug_char_p:
+                elif whitespace_i != len(whitespaces) - 1:
+                    results += [tokens[whitespace_i]]                    
+                else:
+                    results += [tokens[whitespace_i], tokens[whitespace_i + 1]]  
+            elif random.random() < self.aug_char_p:    
                 if tokens[whitespace_i] not in concat_word:
                     results += [tokens[whitespace_i] + tokens[whitespace_i + 1]]
                     concat_word += [tokens[whitespace_i], tokens[whitespace_i + 1]]
@@ -660,7 +666,8 @@ class WhitespaceAugmenter(nac.CharAugmenter):
                 else:
                     results += [tokens[whitespace_i], tokens[whitespace_i + 1]]   
 
-        return ' '.join(results)
+        return self.reverse_tokenizer(results)
+
 
 class MisspellVowelAugment(nac.CharAugmenter):
     def __init__(self, name='MisspellVowelAugment', min_char=2, aug_char_p=0.3,
@@ -807,7 +814,7 @@ class SpellingReplacementAugmenter(nac.CharAugmenter):
                 if result:
                     tokens[index_new_tokens[token_i]]= result
 
-            return ' '.join(tokens)
+            return self.reverse_tokenizer(tokens)
         return data
 
 
@@ -890,4 +897,4 @@ class SubsituteAugmenter(nac.CharAugmenter):
 
             results.append(result)
 
-        return ' '.join(results)
+        return self.reverse_tokenizer(results)
