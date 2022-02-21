@@ -47,7 +47,7 @@ class TypoAugmenter(nac.CharAugmenter):
         if length == 1: return [1]
         if length == 2: return [0.1, 0.9]
         mid = length - 2
-        end_prob = (1 - mid*0.1)/2
+        end_prob = 0.4
         other_prob = (1 - end_prob*2) / mid if mid else 0
         return [other_prob, end_prob] + [other_prob]*(mid-1) + [end_prob]
 
@@ -632,7 +632,6 @@ class WhitespaceAugmenter(nac.CharAugmenter):
         whitespaces = re.findall(" ", ' '.join(tokens))
         aug_word_idxes = self._get_aug_idxes(whitespaces, self.aug_word_min, \
                         self.aug_word_max, self.aug_word_p, Method.CHAR)
-        print(aug_word_idxes)
         for whitespace_i, _ in enumerate(whitespaces):
             if whitespace_i not in aug_word_idxes:
                 if tokens[whitespace_i] not in concat_word:
