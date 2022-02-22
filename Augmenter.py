@@ -69,9 +69,35 @@ class TypoAugmenter(nac.CharAugmenter):
             listOfChars[index] = baseWord[0]
             listOfChars[index+1] = baseWord[1]
 
+    def _reverse_tokenizer(self,tokens, gaps):
+        assert 0 <= len(gaps) - len(tokens) <=1
+        if len(gaps) > len(tokens): tokens.append('')
+        ans = ''
+        for t, g in zip(tokens, gaps):
+            ans = ans + g + t
+        return ans
+    def _findAllGap(self, text, tokens):
+        assert text.startswith(tokens[0])
+        gaps = []
+        gap = ''
+        while text or tokens:
+            if not tokens:
+                gap = text
+                gaps.append(gap)
+                break
+            if text.startswith(tokens[0]):
+                text = text[len(tokens[0]):]
+                tokens = tokens[1:]
+                gaps.append(gap)
+                gap = ''
+            else:
+                gap += text[0]
+                text = text[1:]
+        return gaps
     def substitute(self, data):
         results = []
         tokens = self.tokenizer(data)
+        gaps = self._findAllGap(data, tokens)
         temp = [tok  if self._wordIsDecomposable(tok) else  '' for tok in tokens]
         aug_word_idxes = self._get_aug_idxes(temp, \
                         self.aug_word_min, self.aug_word_max, \
@@ -82,7 +108,7 @@ class TypoAugmenter(nac.CharAugmenter):
                 continue
             result = self.generateWordError(token)
             results.append(result)
-        return self.reverse_tokenizer(results)
+        return self._reverse_tokenizer(results, gaps)
 
     def generateWordError(self, word, force_all=False):
         # if not word[0].isalpha(): return word
@@ -121,7 +147,6 @@ class TypoAugmenter(nac.CharAugmenter):
             listOfChars.append(telexCharacter)
         else:
             listOfChars[indexToInsert:indexToInsert] = telexCharacter
-
 
 ###################################
 class TelexAugmenter(TypoAugmenter):
@@ -262,11 +287,37 @@ class AccentAugmenter(nac.CharAugmenter):
             verbose=verbose, stopwords_regex=stopwords_regex)
         self.eligibleCharacters = compositionChars
         self.model = {}
+    def _reverse_tokenizer(self,tokens, gaps):
+        assert 0 <= len(gaps) - len(tokens) <=1
+        if len(gaps) > len(tokens): tokens.append('')
+        ans = ''
+        for t, g in zip(tokens, gaps):
+            ans = ans + g + t
+        return ans
+    def _findAllGap(self, text, tokens):
+        assert text.startswith(tokens[0])
+        gaps = []
+        gap = ''
+        while text or tokens:
+            if not tokens:
+                gap = text
+                gaps.append(gap)
+                break
+            if text.startswith(tokens[0]):
+                text = text[len(tokens[0]):]
+                tokens = tokens[1:]
+                gaps.append(gap)
+                gap = ''
+            else:
+                gap += text[0]
+                text = text[1:]
+        return gaps    
     def _wordIsEligible(self, word):
       return any(map(lambda x: x in self.eligibleCharacters, word))
     def substitute(self, data):
         results = []
         tokens = self.tokenizer(data)
+        gaps = self._findAllGap(data, tokens)
         temp = [tok if self._wordIsEligible(tok) else '' for tok in tokens]
         aug_word_idxes = self._get_aug_idxes(temp, self.aug_word_min, self.aug_word_max, self.aug_word_p, Method.WORD)
         for token_i, token in enumerate(tokens):
@@ -287,7 +338,7 @@ class AccentAugmenter(nac.CharAugmenter):
 
             results.append(result)
 
-        return self.reverse_tokenizer(results)
+        return self._reverse_tokenizer(results, gaps)
 
 class MissingDialectAugmenter(AccentAugmenter):
     def __init__(self, name='MissingDialectAugmenter', min_char=2, aug_char_p=0.3,
@@ -439,6 +490,32 @@ class MyKeyboardAug(nac.KeyboardAug):
                          include_numeric=include_numeric, include_upper_case=include_upper_case, lang=lang, verbose=verbose, 
                          stopwords_regex=stopwords_regex, model_path=model_path, min_char=min_char)
         self.telexDecomposer = TelexAugmenter()
+    
+    def _reverse_tokenizer(self,tokens, gaps):
+        assert 0 <= len(gaps) - len(tokens) <=1
+        if len(gaps) > len(tokens): tokens.append('')
+        ans = ''
+        for t, g in zip(tokens, gaps):
+            ans = ans + g + t
+        return ans
+    def _findAllGap(self, text, tokens):
+        assert text.startswith(tokens[0])
+        gaps = []
+        gap = ''
+        while text or tokens:
+            if not tokens:
+                gap = text
+                gaps.append(gap)
+                break
+            if text.startswith(tokens[0]):
+                text = text[len(tokens[0]):]
+                tokens = tokens[1:]
+                gaps.append(gap)
+                gap = ''
+            else:
+                gap += text[0]
+                text = text[1:]
+        return gaps    
 
     def substitute(self, data):
         if not data or not data.strip():
@@ -447,6 +524,8 @@ class MyKeyboardAug(nac.KeyboardAug):
         change_seq = 0
 
         doc = Doc(data, self.tokenizer(data))
+        gaps = self._findAllGap(data, doc.get_original_tokens())
+
         aug_word_idxes = self._get_aug_idxes(doc.get_original_tokens(), self.aug_word_min,
                                              self.aug_word_max, self.aug_word_p, Method.WORD)
         for token_i, token in enumerate(doc.get_original_tokens()):
@@ -476,9 +555,9 @@ class MyKeyboardAug(nac.KeyboardAug):
                                change_seq=self.parent_change_seq + change_seq)
 
         if self.include_detail:
-            return self.reverse_tokenizer(doc.get_augmented_tokens()), doc.get_change_logs()
+            return self._reverse_tokenizer(doc.get_augmented_tokens(), gaps), doc.get_change_logs()
         else:
-            return self.reverse_tokenizer(doc.get_augmented_tokens())
+            return self._reverse_tokenizer(doc.get_augmented_tokens(),gaps)
 
 
 class DuplicateAugmenter(nac.CharAugmenter):
@@ -491,6 +570,33 @@ class DuplicateAugmenter(nac.CharAugmenter):
             aug_word_max=aug_word_max, aug_word_p=aug_word_p, tokenizer=tokenizer,
             reverse_tokenizer=reverse_tokenizer, stopwords=stopwords, device='cpu',
             verbose=verbose, stopwords_regex=stopwords_regex)
+
+    def _reverse_tokenizer(self,tokens, gaps):
+        assert 0 <= len(gaps) - len(tokens) <=1
+        if len(gaps) > len(tokens): tokens.append('')
+        ans = ''
+        for t, g in zip(tokens, gaps):
+            ans = ans + g + t
+        return ans
+    def _findAllGap(self, text, tokens):
+        assert text.startswith(tokens[0])
+        gaps = []
+        gap = ''
+        while text or tokens:
+            if not tokens:
+                gap = text
+                gaps.append(gap)
+                break
+            if text.startswith(tokens[0]):
+                text = text[len(tokens[0]):]
+                tokens = tokens[1:]
+                gaps.append(gap)
+                gap = ''
+            else:
+                gap += text[0]
+                text = text[1:]
+        return gaps    
+
     def insert(self, data):
         if not data or not data.strip():
             return data
@@ -498,6 +604,8 @@ class DuplicateAugmenter(nac.CharAugmenter):
         change_seq = 0
 
         doc = Doc(data, self.tokenizer(data))
+        gaps = self._findAllGap(data, doc.get_original_tokens())
+
         aug_word_idxes = self._get_aug_idxes(
             doc.get_original_tokens(), self.aug_word_min, self.aug_word_max, self.aug_word_p, Method.WORD)
 
@@ -526,9 +634,10 @@ class DuplicateAugmenter(nac.CharAugmenter):
                                   change_seq=self.parent_change_seq + change_seq)
 
         if self.include_detail:
-            return self.reverse_tokenizer(doc.get_augmented_tokens()), doc.get_change_logs()
+            return self._reverse_tokenizer(doc.get_augmented_tokens(), gaps), doc.get_change_logs()
         else:
-            return self.reverse_tokenizer(doc.get_augmented_tokens())
+            return self._reverse_tokenizer(doc.get_augmented_tokens(),gaps)
+
 
 class MyRandomCharAugmenter(nac.CharAugmenter):
     def __init__(self, name='MyRandomCharAugmenter', min_char=2, aug_char_min=1, aug_char_max=10, aug_char_p=0.3,
@@ -552,10 +661,38 @@ class MyRandomCharAugmenter(nac.CharAugmenter):
         #   nac.RandomCharAug(action="substitute", aug_word_p=1, min_char=3),
         ]
         self.pdf = [0.4, 0.3, 0.2,0.1]
+    def _reverse_tokenizer(self,tokens, gaps):
+        assert 0 <= len(gaps) - len(tokens) <=1
+        if len(gaps) > len(tokens): tokens.append('')
+        ans = ''
+        for t, g in zip(tokens, gaps):
+            ans = ans + g + t
+        return ans
+    def _findAllGap(self, text, tokens):
+        assert text.startswith(tokens[0])
+        gaps = []
+        gap = ''
+        while text or tokens:
+            if not tokens:
+                gap = text
+                gaps.append(gap)
+                break
+            if text.startswith(tokens[0]):
+                text = text[len(tokens[0]):]
+                tokens = tokens[1:]
+                gaps.append(gap)
+                gap = ''
+            else:
+                gap += text[0]
+                text = text[1:]
+        return gaps    
+
     def substitute(self, data):
         results = []
         # Tokenize a text (e.g. The quick brown fox jumps over the lazy dog) to tokens (e.g. ['The', 'quick', ...])
         tokens = self.tokenizer(data)
+        gaps = self._findAllGap(data, tokens)
+
         # Get target tokens
         aug_word_idxes = self._get_aug_idxes(tokens, self.aug_word_min, self.aug_word_max, self.aug_word_p, Method.WORD)
         for token_i, token in enumerate(tokens):
@@ -568,8 +705,7 @@ class MyRandomCharAugmenter(nac.CharAugmenter):
             result = action.augment(token)
             results.append(result)
 
-        return self.reverse_tokenizer(results)
-
+        return self._reverse_tokenizer(results, gaps)
 # class RandomWordAugmenter(nac.CharAugmenter):
 #     def __init__(self, vocabs,name='RandomWord_Aug',
 #                  aug_word_min=1, aug_word_max=10, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
