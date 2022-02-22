@@ -478,8 +478,6 @@ class WrongDialectAugmenter(AccentAugmenter):
         }
         self.eligibleCharacters = self.model.keys()
 
-import nlpaug.augmenter.word as naw
-
 class MyEditDistanceAugmenter(naw.SpellingAug):
     def __init__(self, dict_path=None, name='MyEditDistanceAugmenter', aug_min=1, aug_max=10, aug_p=0.3, stopwords=None,
                  tokenizer=None, reverse_tokenizer=None, include_reverse=True, stopwords_regex=None,
