@@ -5,6 +5,7 @@ import string
 import numpy as np
 import numpy.random as random
 import nlpaug.model.char as nmc
+import nlpaug.augmenter.word as naw
 import nlpaug.augmenter.char as nac
 from nlpaug.util import Action, Method, Doc
 from nlpaug.augmenter.char import CharAugmenter
@@ -477,6 +478,80 @@ class WrongDialectAugmenter(AccentAugmenter):
         }
         self.eligibleCharacters = self.model.keys()
 
+import nlpaug.augmenter.word as naw
+
+class MyEditDistanceAugmenter(naw.SpellingAug):
+    def __init__(self, dict_path=None, name='MyEditDistanceAugmenter', aug_min=1, aug_max=10, aug_p=0.3, stopwords=None,
+                 tokenizer=None, reverse_tokenizer=None, include_reverse=True, stopwords_regex=None,
+                 verbose=0):
+        super().__init__(dict_path=dict_path, name=name, aug_min=aug_min, aug_max=aug_max, aug_p=aug_p, stopwords=stopwords,
+                 tokenizer=tokenizer, reverse_tokenizer=reverse_tokenizer, include_reverse=include_reverse, stopwords_regex=stopwords_regex,
+                 verbose=verbose)
+    def _reverse_tokenizer(self,tokens, gaps):
+        assert 0 <= len(gaps) - len(tokens) <=1
+        if len(gaps) > len(tokens): tokens.append('')
+        ans = ''
+        for t, g in zip(tokens, gaps):
+            ans = ans + g + t
+        return ans
+    def _findAllGap(self, text, tokens):
+        assert text.startswith(tokens[0])
+        gaps = []
+        gap = ''
+        while text or tokens:
+            if not tokens:
+                gap = text
+                gaps.append(gap)
+                break
+            if text.startswith(tokens[0]):
+                text = text[len(tokens[0]):]
+                tokens = tokens[1:]
+                gaps.append(gap)
+                gap = ''
+            else:
+                gap += text[0]
+                text = text[1:]
+        return gaps    
+
+    def substitute(self, data):
+        if not data or not data.strip():
+            return data
+            
+        change_seq = 0
+        doc = Doc(data, self.tokenizer(data))
+        gaps = self._findAllGap(data, doc.get_original_tokens())
+
+        aug_idxes = self._get_aug_idxes(doc.get_original_tokens())
+
+        if aug_idxes is None or len(aug_idxes) == 0:
+            if self.include_detail:
+                return data, []
+            return data
+
+        for aug_idx, original_token in enumerate(doc.get_original_tokens()):
+            # Skip if no augment for word
+            if aug_idx not in aug_idxes:
+                continue
+
+            candidate_words = self.model.predict(original_token)
+            substitute_token = ''
+            if candidate_words:
+                substitute_token = self.sample(candidate_words, 1)[0]
+            else:
+                # Unexpected scenario. Adding original token
+                substitute_token = original_token
+
+            if aug_idx == 0:
+                substitute_token = self.align_capitalization(original_token, substitute_token)
+
+            change_seq += 1
+            doc.add_change_log(aug_idx, new_token=substitute_token, action=Action.SUBSTITUTE,
+                                change_seq=self.parent_change_seq + change_seq)
+
+        if self.include_detail:
+            return self._reverse_tokenizer(doc.get_augmented_tokens(), gaps), doc.get_change_logs()
+        else:
+            return self._reverse_tokenizer(doc.get_augmented_tokens(),gaps)
 
 class MyKeyboardAug(nac.KeyboardAug):
     def __init__(self, name='MyKeyboardAug', aug_char_min=1, aug_char_max=10, aug_char_p=0.3,
