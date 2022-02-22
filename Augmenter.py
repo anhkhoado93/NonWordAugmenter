@@ -762,6 +762,26 @@ class WhitespaceAugmenter(nac.CharAugmenter):
         
         self.eligibleCharacters = compositionChars
 
+    def _reverse_tokenizer(self, tokens, results, text):
+        tmp = text
+        final_string = ""
+        j = 0
+        for token in tokens:
+            if token in final_string and token not in string.punctuation:
+                tmp = tmp[x.span()[1] + 1:]
+                continue
+            x = re.search(token, tmp)
+            if x and x.span()[0] == 0:
+                final_string += results[j]
+                j += 1
+                tmp = tmp[x.span()[1]:]
+                if tmp:
+                    while tmp[0] == " ":
+                        tmp = tmp[1:]
+                        final_string += " "
+        
+        return final_string
+
     def substitute(self, data):
         results = []
         concat_word = []
@@ -802,7 +822,8 @@ class WhitespaceAugmenter(nac.CharAugmenter):
                 else:
                     results += [tokens[whitespace_i], tokens[whitespace_i + 1]]   
 
-        return self.reverse_tokenizer(results)
+        return self._reverse_tokenizer(tokens, results, data)
+        # return self.reverse_tokenizer(results)
 
 
 class MisspellVowelAugment(nac.CharAugmenter):
@@ -835,9 +856,37 @@ class MisspellVowelAugment(nac.CharAugmenter):
                 return vowel
         return None
 
+    def _reverse_tokenizer(self,tokens, gaps):
+        assert 0 <= len(gaps) - len(tokens) <=1
+        if len(gaps) > len(tokens): tokens.append('')
+        ans = ''
+        for t, g in zip(tokens, gaps):
+            ans = ans + g + t
+        return ans
+    
+    def _findAllGap(self, text, tokens):
+        assert text.startswith(tokens[0])
+        gaps = []
+        gap = ''
+        while text or tokens:
+            if not tokens:
+                gap = text
+                gaps.append(gap)
+                break
+            if text.startswith(tokens[0]):
+                text = text[len(tokens[0]):]
+                tokens = tokens[1:]
+                gaps.append(gap)
+                gap = ''
+            else:
+                gap += text[0]
+                text = text[1:]
+        return gaps
+
     def substitute(self, data):
         results = []
         tokens = self.tokenizer(data)
+        gaps = self._findAllGap(data, tokens)
         temp = [tok if self.isEligible(tok) else '' for tok in tokens]
         aug_word_idxes = self._get_aug_idxes(temp, self.aug_word_min, \
                         self.aug_word_max, self.aug_word_p, Method.WORD)
@@ -850,7 +899,7 @@ class MisspellVowelAugment(nac.CharAugmenter):
             token = re.sub(vowel, self.sample(self.model[vowel], 1)[0], token)
             results += [token]
 
-        return self.reverse_tokenizer(results)
+        return self._reverse_tokenizer(results, gaps)
 
 ###Spelling Augmenter
 
