@@ -977,7 +977,7 @@ class MisspellVowelAugment(nac.CharAugmenter):
 ###Spelling Augmenter
 
 finalConsonant = ['i','y','c','t','n','ng','nh']
-beginConsonant = ['x','s','d','đ','c','k','ngh','ng','gh','g','gi','d','r','tr','ch','n','l','kh','qu','u','v']
+beginConsonant = ['x','s','d','đ','c','k','ngh','ng','gh','g','gi','d','r','tr','ch','n','l','kh','qu','u','v','nh']
 class SpellingReplacementAugmenter(nac.CharAugmenter):
     def __init__(self, name='SpellingReplacementAugmenter', min_char=2, aug_char_p=0.3,
                  aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
@@ -1010,7 +1010,8 @@ class SpellingReplacementAugmenter(nac.CharAugmenter):
             "kh": ["k"],
             "k": ["kh"],
             "qu" : ["u"],
-            "u": ["qu"]
+            "u": ["qu"],
+            "nh" : ["nh"]
         }
         self.model_finalconsonant ={
             "c": ["t"],
@@ -1024,20 +1025,45 @@ class SpellingReplacementAugmenter(nac.CharAugmenter):
         }
 
     def check_pos_consonant(self, word, mode):
-      if mode == 'begin':
-        if word[0] in beginConsonant or word[:2] in beginConsonant or word[:3] in beginConsonant:
-          return True
-      else:
-        if word[-1] in finalConsonant or word[-2:] in finalConsonant:
-          return True
-      return False
+        if not any(char.isalpha() for char in word):
+            return word
+        if mode == 'begin':
+            while not word[0].isalpha():
+                word = word[1:]
+            if word[0] in beginConsonant or word[:2] in beginConsonant or word[:3] in beginConsonant:
+                return True
+        else:
+            while not word[-1].isalpha():
+                word = word[:-1]
+            if word[-1] in finalConsonant or word[-2:] in finalConsonant:
+                return True
+        return False
+
+    def sample_uppercase(self, word, mode):
+        result = ''
+        if mode == 'begin':
+            prefix = self.sample(self.model_beginconsonant[word.lower()], 1)[0]
+            if word.isupper():
+                result += prefix.upper()
+            elif word[0].isupper():
+                result += prefix[0].upper()
+                if len(prefix)>1 : result += prefix[1:] 
+            else:
+                result += prefix
+        else:
+            prefix = self.sample(self.model_finalconsonant[word.lower()], 1)[0]
+            if word.isupper():
+                result += prefix.upper()
+            else:
+                result += prefix
+        return result
 
     def substitute_data(self, data, mode):
         tokens = self.tokenizer(data)
         new_tokens = []
         index_new_tokens = []
         for token_i, token in enumerate(tokens): 
-          if self.check_pos_consonant(token, mode): 
+          if self.check_pos_consonant(token.lower(), mode): 
             new_tokens.append(token)
             index_new_tokens.append(token_i)
         if new_tokens:
@@ -1046,28 +1072,33 @@ class SpellingReplacementAugmenter(nac.CharAugmenter):
                 if token_i not in aug_word_idxes:
                     continue
                 result = ''
-              
                 if mode == 'begin':
-                    if token[:3] in beginConsonant:
+                    while not token[0].isalpha():
+                        result += token[0]
+                        token = token[1:]
+                    if token[:3].lower() in beginConsonant:
                         if np.random.random() < self.aug_char_p:
-                            result = self.sample(self.model_beginconsonant[token[:3]], 1)[0]
+                            result += self.sample_uppercase(token[:3], mode)
                             result += token[3:]
-                    elif token[:2] in beginConsonant :
+                    elif token[:2].lower() in beginConsonant :
                         if np.random.random() < self.aug_char_p:
-                            result = self.sample(self.model_beginconsonant[token[:2]], 1)[0]
+                            result = self.sample_uppercase(token[:2], mode)
                             result += token[2:]
                     else:
                         if np.random.random() < self.aug_char_p: 
-                            result = self.sample(self.model_beginconsonant[token[0]], 1)[0]
+                            result = self.sample_uppercase(token[:1], mode)
                             result += token[1:]
-                        
                 else:
-                    if token[-2:] in finalConsonant:
+                    end_consonants = ''
+                    while not token[-1].isalpha():
+                        end_consonants += token[-1]
+                        token = token[:-1]
+                    if token[-2:].lower() in finalConsonant:
                         if np.random.random() < self.aug_char_p:
-                            result = token[:-2] + self.sample(self.model_finalconsonant[token[-2:]], 1)[0]
+                            result = token[:-2] + self.sample_uppercase(token[-2:], mode) + end_consonants
                     else:
                         if np.random.random() < self.aug_char_p: 
-                            result = token[:-1] + self.sample(self.model_finalconsonant[token[-1]], 1)[0]
+                            result = token[:-1] + self.sample_uppercase(token[-1], mode) + end_consonants
 
                 if result:
                     tokens[index_new_tokens[token_i]]= result
@@ -1118,7 +1149,7 @@ class SubsituteAugmenter(nac.CharAugmenter):
         self.consonants_2 = ['tr', 'th', 'ch','ph', 'nh', 'kh','gi','qu','ng','gh']
 
     def check_if_vowel(self, char):
-        return char in ['a','â','ă','e','ê','o','ô','ơ','u','ư','y']
+        return char.lower() in ['a','â','ă','e','ê','o','ô','ơ','u','ư','y']
 
     def substitute(self, data):
         results = []
@@ -1137,17 +1168,25 @@ class SubsituteAugmenter(nac.CharAugmenter):
             while (i < len(chars)):
                 if random.random() < self.aug_char_p:
                     if self.check_if_vowel(chars[i]):
-                        result += self.sample(self.vowels, 1)[0]
+                        sub_char = self.sample(self.vowels, 1)[0]
+                        if chars[i].isupper(): result += sub_char.upper()
+                        else: result += sub_char
                     else:
-                        if ''.join(chars[i:i+2]) in self.consonants_2:
-                            result += self.sample(self.consonants_2, 1)[0]
+                        if ''.join(chars[i:i+2]).lower() in self.consonants_2:
+                            sub_char = self.sample(self.consonants_2, 1)[0]
+                            if chars[i].isupper(): result += sub_char[0].upper()
+                            else: result += sub_char[0]
+                            if chars[i+1].isupper(): result += sub_char[1].upper()
+                            else: result += sub_char[1]
                             i +=1
-                        elif chars[i] in self.consonants_1:
-                            result += self.sample(self.consonants_1, 1)[0]
+                        elif chars[i].lower() in self.consonants_1:
+                            sub_char = self.sample(self.consonants_1, 1)[0]
+                            if chars[i].isupper(): result += sub_char.upper()
+                            else: result += sub_char
                         else:
                             result += chars[i]
                 else:
-                    if ''.join(chars[i:i+2]) in self.consonants_2:
+                    if ''.join(chars[i:i+2]).lower() in self.consonants_2:
                         result += ''.join(chars[i:i+2])
                         i+=1
                     else: result += chars[i]
