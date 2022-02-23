@@ -40,7 +40,7 @@ class TypoAugmenter(nac.CharAugmenter):
         return character in self.typo
 
     def _wordIsDecomposable(self, word):
-        return any(map(self._isTypo, word))
+        return any(map(self._isTypo, word.lower()))
 
     def _randomDecomposeTwice(self):
         return np.random.uniform() < 0.50
@@ -111,30 +111,46 @@ class TypoAugmenter(nac.CharAugmenter):
             results.append(result)
         return self._reverse_tokenizer(results, gaps)
 
+    def recasing(self, telexChar, baseWord, compWord):
+        if telexChar.isupper():
+            baseWord=baseWord.upper()
+            compWord = [c.upper() for c in compWord]
+        elif not telexChar.islower():
+            first, second = baseWord
+            if telexChar[0].isupper(): first = first.upper()
+            if telexChar[1].isupper(): second = second.upper()
+            baseWord = first + second
+
+        return baseWord, compWord
+
     def generateWordError(self, word, force_all=False):
         # if not word[0].isalpha(): return word
         baseWord, comWord = "", []
         listOfChars = [w for w in word]
         index = -1
         if self._containsUO(word):
-            index = listOfChars.index('ư')
-            uoType = ''.join(listOfChars[index:index + 2])
-            if uoType not in ['ươ', 'ướ', 'ườ', 'ưở', 'ượ', "ưỡ"]:
+            index = listOfChars.index('ư') if "ư" in listOfChars\
+                                         else listOfChars.index('Ư')
+            
+            telexChar = ''.join(listOfChars[index:index + 2])
+            if telexChar.lower() not in ['ươ', 'ướ', 'ườ', 'ưở', 'ượ', "ưỡ"]:
                 return word
-            baseWord, compWord = self.typo[uoType][0], self.typo[uoType][1:]
+            baseWord, compWord = self.typo[telexChar.lower()][0], self.typo[telexChar.lower()][1:]
         else:
             index, telexChar = next(((i, c) for i, c in enumerate(listOfChars) \
-                                     if self._isTypo(c)), (None,None))
+                                     if self._isTypo(c.lower())), (None,None))
             if not telexChar: return ''.join(listOfChars)
-            baseWord, compWord = self.typo[telexChar][0], self.typo[telexChar][1:]
+            baseWord, compWord = self.typo[telexChar.lower()][0], self.typo[telexChar.lower()][1:]
 
-        isDecomposedTwice = len(compWord) != 1 and (force_all or self._randomDecomposeTwice())
+        isDecomposedTwice = len(compWord) != 1 and self._randomDecomposeTwice()
         if not isDecomposedTwice:
             baseWord, compWord = self._getNewDecomposition(baseWord, compWord)
+        baseWord, compWord = self.recasing(telexChar, baseWord, compWord)
         self._insertBaseWord(listOfChars, index, baseWord)
-        self._insertRandom(listOfChars, index, baseWord, compWord[0])
-        if isDecomposedTwice:
-            self._insertRandom(listOfChars, index, baseWord, compWord[1])
+        if compWord:
+            self._insertRandom(listOfChars, index, baseWord, compWord[0])
+            if isDecomposedTwice:
+                self._insertRandom(listOfChars, index, baseWord, compWord[1])
         result = ''.join(listOfChars)
 
         return result
@@ -314,7 +330,7 @@ class AccentAugmenter(nac.CharAugmenter):
                 text = text[1:]
         return gaps    
     def _wordIsEligible(self, word):
-      return any(map(lambda x: x in self.eligibleCharacters, word))
+      return any(map(lambda x: x.lower() in self.eligibleCharacters, word))
     def substitute(self, data):
         results = []
         tokens = self.tokenizer(data)
@@ -329,11 +345,15 @@ class AccentAugmenter(nac.CharAugmenter):
             result = ''
             chars = self.token2char(token)
             for char in chars:
-                if char not in self.eligibleCharacters:
+                lchar = char.lower()
+                if lchar not in self.eligibleCharacters:
                     result += char
                     continue
-                if np.random.random() < self.aug_char_p:
-                    result += self.sample(self.model[char], 1)[0]
+                if random.random() < self.aug_char_p:
+                    eligible_replacement = self.model[lchar]
+                    if char.isupper():
+                        eligible_replacement = [c.upper() for c in eligible_replacement]
+                    result += self.sample(eligible_replacement, 1)[0]
                 else:
                     result += char
 
