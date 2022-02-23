@@ -860,12 +860,12 @@ class WhitespaceAugmenter(nac.CharAugmenter):
         final_string = ""
         j = 0
         for token in tokens:
+            x = re.search(token, tmp)
             if token in final_string and token not in string.punctuation:
                 tmp = tmp[x.span()[1] + 1:]
                 continue
             elif token in string.punctuation:
                 token = '\\' + token
-            x = re.search(token, tmp)
             if x and x.span()[0] == 0:
                 final_string += results[j]
                 j += 1
