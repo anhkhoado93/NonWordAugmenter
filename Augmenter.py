@@ -767,12 +767,12 @@ class WhitespaceAugmenter(nac.CharAugmenter):
         final_string = ""
         j = 0
         for token in tokens:
+            x = re.search(token, tmp)
             if token in final_string and token not in string.punctuation:
                 tmp = tmp[x.span()[1] + 1:]
                 continue
             elif token in string.punctuation:
                 token = '\\' + token
-            x = re.search(token, tmp)
             if x and x.span()[0] == 0:
                 final_string += results[j]
                 j += 1
@@ -824,10 +824,8 @@ class WhitespaceAugmenter(nac.CharAugmenter):
                 else:
                     results += [tokens[whitespace_i], tokens[whitespace_i + 1]]   
 
-        return self._reverse_tokenizer(tokens, results, data)
-        # return self.reverse_tokenizer(results)
-
-
+        # return self._reverse_tokenizer(tokens, results, data)
+        return self.reverse_tokenizer(results)
 class MisspellVowelAugment(nac.CharAugmenter):
     def __init__(self, name='MisspellVowelAugment', min_char=2, aug_char_p=0.3,
                  aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
