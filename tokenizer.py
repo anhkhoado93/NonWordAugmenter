@@ -6,9 +6,8 @@ DETOKENIZER_REGEXS = [
 	(re.compile(r'\s([\[\(\{\<])\s'), r' \g<1>'), # Left bracket
 	(re.compile(r'\s([\]\)\}\>])\s'), r'\g<1> '),# right bracket
     (re.compile(r'\s([\.?!])\s*([\.?!]+)'), r'\1\2'),
-    (re.compile(r'\s*([\(\)\[\]\{\}\"\'\\\/\+\-])\s*(.*)'), r'\1\2'),
+    (re.compile(r'([\[\(\{\"\'])\s+(.*)\s+([\]\)\}\"\'])'), r'\1\2\3'),
     (re.compile(r'([,?!])(?!([\s.]))(\W)'), r'\1 \3'),
-    (re.compile(r'(\w)([\(\{\[\"])'), r'\1 \2'),
     (re.compile(r'(\d)\s+([,.;])'), r'\1\2'),
     (re.compile(r'\. \.'), r'..')
 ]
