@@ -7,9 +7,12 @@ DETOKENIZER_REGEXS = [
 	(re.compile(r'\s([\]\)\}\>])\s'), r'\g<1> '),# right bracket
     (re.compile(r'\s([\.?!])\s*([\.?!]+)'), r'\1\2'),
     (re.compile(r'([\[\(\{\"\'])\s+(.*)\s+([\]\)\}\"\'])'), r'\1\2\3'),
-    (re.compile(r'([,?!])(?!([\s.]))(\W)'), r'\1 \3'),
+    (re.compile(r'([,?!])(?!([\s.]))(\w)'), r'\1 \3'),
     (re.compile(r'(\d)\s+([,.;])'), r'\1\2'),
-    (re.compile(r'\. \.'), r'..')
+    (re.compile(r'\. \.'), r'..'),
+    (re.compile(r',\s+,'), r',,'),
+    (re.compile(r'([\(\[\{])\s+([\(\[\{])'), r'\1\2'),
+    (re.compile(r'([\]\)\}])\s+([\]\)\}])'), r'\1\2')
 ]
 
 TOKENIZER_REGEX = re.compile(r'(\W)')
