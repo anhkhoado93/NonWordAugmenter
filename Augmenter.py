@@ -10,7 +10,7 @@ import nlpaug.augmenter.char as nac
 from nlpaug.util import Action, Method, Doc
 from nlpaug.augmenter.char import CharAugmenter
 
-def defaultTokenizer(self, string, seperator=' '):
+def defaultTokenizer(string, seperator=' '):
     tokenizedList = string.split(seperator)
     tokenizedList = list(filter(lambda token: token != '', tokenizedList))
     return tokenizedList
