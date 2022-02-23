@@ -917,10 +917,8 @@ class WhitespaceAugmenter(nac.CharAugmenter):
                 else:
                     results += [tokens[whitespace_i], tokens[whitespace_i + 1]]   
 
-        # return self.reverse_tokenizer(results)
+        # return self._reverse_tokenizer(tokens, results, data)
         return self.reverse_tokenizer(results)
-
-
 class MisspellVowelAugment(nac.CharAugmenter):
     def __init__(self, name='MisspellVowelAugment', min_char=2, aug_char_p=0.3,
                  aug_word_min=1, aug_word_max=100, aug_word_p=0.3, tokenizer=None, reverse_tokenizer=None,
