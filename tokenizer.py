@@ -22,7 +22,10 @@ def tokenize(text):
     return [t for t in tokens if len(t.strip()) > 0]
 
 def normalize_punctuation(data):
-    tokens = tokenize(data)
+    if isinstance(data, str):
+        tokens = tokenize(data)
+    else:
+        tokens = data
     text = ' '.join(tokens)
     for regex, sub in DETOKENIZER_REGEXS:
         text = regex.sub(sub, text)
