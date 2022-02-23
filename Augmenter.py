@@ -917,7 +917,7 @@ class WhitespaceAugmenter(nac.CharAugmenter):
                 else:
                     results += [tokens[whitespace_i], tokens[whitespace_i + 1]]   
 
-        return self._reverse_tokenizer(tokens, results, data)
+        return self.reserve_tokenzer(tokens, results, data)
         # return self.reverse_tokenizer(results)
 
 
