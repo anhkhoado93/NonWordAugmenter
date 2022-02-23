@@ -771,7 +771,7 @@ class WhitespaceAugmenter(nac.CharAugmenter):
                 tmp = tmp[x.span()[1] + 1:]
                 continue
             elif token in string.punctuation:
-                token = "\"" + token
+                token = '\\' + token
             x = re.search(token, tmp)
             if x and x.span()[0] == 0:
                 final_string += results[j]
