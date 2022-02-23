@@ -613,16 +613,18 @@ class SpellingReplacementAugmenter(nac.CharAugmenter):
         }
 
     def check_pos_consonant(self, word, mode):
-        if not any(char.isalpha() for char in word):
-            return word
+        
+    
         if mode == 'begin':
-            while not word[0].isalpha():
-                word = word[1:]
+            if any(char.isalpha() for char in word):
+                while not word[0].isalpha():
+                    word = word[1:]
             if word[0] in beginConsonant or word[:2] in beginConsonant or word[:3] in beginConsonant:
                 return True
         else:
-            while not word[-1].isalpha():
-                word = word[:-1]
+            if any(char.isalpha() for char in word):
+                while not word[-1].isalpha():
+                    word = word[:-1]
             if word[-1] in finalConsonant or word[-2:] in finalConsonant:
                 return True
         return False
@@ -661,9 +663,10 @@ class SpellingReplacementAugmenter(nac.CharAugmenter):
                     continue
                 result = ''
                 if mode == 'begin':
-                    while not token[0].isalpha():
-                        result += token[0]
-                        token = token[1:]
+                    if any(char.isalpha() for char in token):
+                        while not token[0].isalpha():
+                            result += token[0]
+                            token = token[1:]
                     if token[:3].lower() in beginConsonant:
                         if np.random.random() < self.aug_char_p:
                             result += self.sample_uppercase(token[:3], mode)
@@ -678,9 +681,10 @@ class SpellingReplacementAugmenter(nac.CharAugmenter):
                             result += token[1:]
                 else:
                     end_consonants = ''
-                    while not token[-1].isalpha():
-                        end_consonants += token[-1]
-                        token = token[:-1]
+                    if any(char.isalpha() for char in token):
+                        while not token[-1].isalpha():
+                            end_consonants += token[-1]
+                            token = token[:-1]
                     if token[-2:].lower() in finalConsonant:
                         if np.random.random() < self.aug_char_p:
                             result = token[:-2] + self.sample_uppercase(token[-2:], mode) + end_consonants
