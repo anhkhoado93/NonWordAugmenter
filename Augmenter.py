@@ -4,6 +4,7 @@ import re
 import string 
 import numpy as np
 import numpy.random as random
+import random as normal_random
 import nlpaug.model.char as nmc
 import nlpaug.augmenter.word as naw
 import nlpaug.augmenter.char as nac
@@ -1252,11 +1253,10 @@ class DuplicateWordAugmenter(naw.SpellingAug):
                 gap += text[0]
                 text = text[1:]
         return gaps    
-
+    
     def substitute(self, data):
         if not data or not data.strip():
-            return data
-            
+            return data 
         change_seq = 0
         toks = self.tokenizer(data)
         gaps = self._findAllGap(data, toks)
@@ -1267,5 +1267,68 @@ class DuplicateWordAugmenter(naw.SpellingAug):
         aug_idxes.sort(reverse=True)
         for idx in aug_idxes:
             toks.insert(idx,toks[idx])
+            gaps.insert(idx+1,' ')
+        return self._reverse_tokenizer(toks,gaps)
+
+
+
+
+class InsertIrrelevantWordAugmenter(naw.SpellingAug):
+    
+    def __init__(self, dict_path=None, name='InsertIrrelevantWordAugmenter', aug_min=1, aug_max=2, aug_p=0.3, stopwords=None,
+                 tokenizer=None, reverse_tokenizer=None, include_reverse=True, stopwords_regex=None,
+                 verbose=0, file_path= 'edit3.txt'):
+        super().__init__(dict_path=dict_path, name=name, aug_min=aug_min, aug_max=aug_max, aug_p=aug_p, stopwords=stopwords,
+                 tokenizer=tokenizer, reverse_tokenizer=reverse_tokenizer, include_reverse=include_reverse, stopwords_regex=stopwords_regex,
+                 verbose=verbose)
+
+        self.create_vocab(file_path)
+
+    def create_vocab(self, file_path):
+        with open(file_path, encoding='utf-8') as f:
+            contents = f.read().replace('\n',' ') 
+            self.vocab = list(set(contents.split(' ')))
+        
+    def _reverse_tokenizer(self,tokens, gaps):
+        assert 0 <= len(gaps) - len(tokens) <=1
+        if len(gaps) > len(tokens): tokens.append('')
+        ans = ''
+        for t, g in zip(tokens, gaps):
+            ans = ans + g + t
+        return ans
+    def _findAllGap(self, text, tokens):
+        assert text.startswith(tokens[0])
+        gaps = []
+        gap = ''
+        while text or tokens:
+            if not tokens:
+                gap = text
+                gaps.append(gap)
+                break
+            if text.startswith(tokens[0]):
+                text = text[len(tokens[0]):]
+                tokens = tokens[1:]
+                gaps.append(gap)
+                gap = ''
+            else:
+                gap += text[0]
+                text = text[1:]
+        return gaps    
+    
+    def substitute(self, data):
+        if not data or not data.strip():
+            return data 
+        toks = self.tokenizer(data)
+        gaps = self._findAllGap(data, toks)
+
+        aug_idxes = self._get_random_aug_idxes(toks)
+        if aug_idxes is None or len(aug_idxes) == 0:
+            return data
+        aug_idxes.sort(reverse=True)
+        for idx in aug_idxes:
+            sample = normal_random.choices(self.vocab, k=1)[0]
+            while sample==toks[idx]:
+                sample = normal_random.choices(self.vocab, k=1)[0]
+            toks.insert(idx,sample)
             gaps.insert(idx+1,' ')
         return self._reverse_tokenizer(toks,gaps)
