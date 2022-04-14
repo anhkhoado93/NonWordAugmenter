@@ -11,6 +11,12 @@ import nlpaug.augmenter.char as nac
 from nlpaug.util import Action, Method, Doc
 from nlpaug.augmenter.char import CharAugmenter
 
+all_syllable = open("all-vietnamese-syllables.txt","r").readlines()
+all_syllable = set(map(lambda x: x.strip(), all_syllable))
+
+def is_vn(word):
+    pasreturn word in all_syllable
+    
 def defaultTokenizer(string, seperator=' '):
     tokenizedList = string.split(seperator)
     tokenizedList = list(filter(lambda token: token != '', tokenizedList))
@@ -100,7 +106,7 @@ class TypoAugmenter(nac.CharAugmenter):
         results = []
         tokens = self.tokenizer(data)
         gaps = self._findAllGap(data, tokens)
-        temp = [tok  if self._wordIsDecomposable(tok) else  '' for tok in tokens]
+        temp = [tok  if is_vn(tok) and self._wordIsDecomposable(tok) else  '' for tok in tokens]
         aug_word_idxes = self._get_aug_idxes(temp, \
                         self.aug_word_min, self.aug_word_max, \
                         self.aug_word_p, Method.WORD)
@@ -331,7 +337,7 @@ class AccentAugmenter(nac.CharAugmenter):
                 text = text[1:]
         return gaps    
     def _wordIsEligible(self, word):
-      return any(map(lambda x: x.lower() in self.eligibleCharacters, word))
+      return is_vn(tok) and any(map(lambda x: x.lower() in self.eligibleCharacters, word))
     def substitute(self, data):
         results = []
         tokens = self.tokenizer(data)
@@ -539,8 +545,9 @@ class MyEditDistanceAugmenter(naw.SpellingAug):
         change_seq = 0
         doc = Doc(data, self.tokenizer(data))
         gaps = self._findAllGap(data, doc.get_original_tokens())
+        temp = [tok if is_vn(tok) else '' for tok in tokens]
 
-        aug_idxes = self._get_aug_idxes(doc.get_original_tokens())
+        aug_idxes = self._get_aug_idxes(temp)
 
         if aug_idxes is None or len(aug_idxes) == 0:
             if self.include_detail:
@@ -567,8 +574,7 @@ class MyEditDistanceAugmenter(naw.SpellingAug):
             doc.add_change_log(aug_idx, new_token=substitute_token, action=Action.SUBSTITUTE,
                                 change_seq=self.parent_change_seq + change_seq)
 
-        if self.include_detail:
-            return self._reverse_tokenizer(doc.get_augmented_tokens(), gaps), doc.get_change_logs()
+        self._reverse_tokenizer(doc.get_augmented_tokens(), gaps), doc.get_change_logs()
         else:
             return self._reverse_tokenizer(doc.get_augmented_tokens(),gaps)
 
@@ -616,11 +622,12 @@ class MyKeyboardAug(nac.KeyboardAug):
             return data
 
         change_seq = 0
+        temp = [tok if is_vn(tok) else '' for tok in tokens]
 
         doc = Doc(data, self.tokenizer(data))
         gaps = self._findAllGap(data, doc.get_original_tokens())
 
-        aug_word_idxes = self._get_aug_idxes(doc.get_original_tokens(), self.aug_word_min,
+        aug_word_idxes = self._get_aug_idxes(temp, self.aug_word_min,
                                              self.aug_word_max, self.aug_word_p, Method.WORD)
         for token_i, token in enumerate(doc.get_original_tokens()):
             if token_i not in aug_word_idxes:
@@ -699,9 +706,10 @@ class DuplicateAugmenter(nac.CharAugmenter):
 
         doc = Doc(data, self.tokenizer(data))
         gaps = self._findAllGap(data, doc.get_original_tokens())
+        temp = [tok if is_vn(tok) else '' for tok in tokens]
 
         aug_word_idxes = self._get_aug_idxes(
-            doc.get_original_tokens(), self.aug_word_min, self.aug_word_max, self.aug_word_p, Method.WORD)
+            temp, self.aug_word_min, self.aug_word_max, self.aug_word_p, Method.WORD)
 
         if aug_word_idxes is None:
             return data
@@ -786,9 +794,10 @@ class MyRandomCharAugmenter(nac.CharAugmenter):
         # Tokenize a text (e.g. The quick brown fox jumps over the lazy dog) to tokens (e.g. ['The', 'quick', ...])
         tokens = self.tokenizer(data)
         gaps = self._findAllGap(data, tokens)
+        temp = [tok if is_vn(tok) else '' for tok in tokens]
 
         # Get target tokens
-        aug_word_idxes = self._get_aug_idxes(tokens, self.aug_word_min, self.aug_word_max, self.aug_word_p, Method.WORD)
+        aug_word_idxes = self._get_aug_idxes(temp, self.aug_word_min, self.aug_word_max, self.aug_word_p, Method.WORD)
         for token_i, token in enumerate(tokens):
             # Do not augment if it is not the target
             if token_i not in aug_word_idxes:
@@ -942,7 +951,7 @@ class MisspellVowelAugment(nac.CharAugmenter):
         self.eligibleCharacters = self.model.keys()
         
     def isEligible(self, word):
-      return any(map(lambda c: c in word ,self.eligibleCharacters))
+      return is_vn(word) and any(map(lambda c: c in word ,self.eligibleCharacters))
 
     def _get_vowel(self, token):
         for vowel in self.eligibleCharacters:
@@ -1179,7 +1188,9 @@ class SubsituteAugmenter(nac.CharAugmenter):
     def substitute(self, data):
         results = []
         tokens = self.tokenizer(data)
-        aug_word_idxes = self._get_aug_idxes(tokens, self.aug_word_min, \
+        temp = [tok if is_vn(tok) else '' for tok in tokens]
+
+        aug_word_idxes = self._get_aug_idxes(temp, self.aug_word_min, \
                         self.aug_word_max, self.aug_word_p, Method.WORD)
 
         for token_i, token in enumerate(tokens):
