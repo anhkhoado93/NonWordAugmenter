@@ -15,8 +15,8 @@ all_syllable = open("all-vietnamese-syllables.txt","r").readlines()
 all_syllable = set(map(lambda x: x.strip(), all_syllable))
 
 def is_vn(word):
-    pasreturn word in all_syllable
-    
+    return word in all_syllable
+
 def defaultTokenizer(string, seperator=' '):
     tokenizedList = string.split(seperator)
     tokenizedList = list(filter(lambda token: token != '', tokenizedList))
@@ -574,9 +574,8 @@ class MyEditDistanceAugmenter(naw.SpellingAug):
             doc.add_change_log(aug_idx, new_token=substitute_token, action=Action.SUBSTITUTE,
                                 change_seq=self.parent_change_seq + change_seq)
 
-        self._reverse_tokenizer(doc.get_augmented_tokens(), gaps), doc.get_change_logs()
-        else:
-            return self._reverse_tokenizer(doc.get_augmented_tokens(),gaps)
+        # self._reverse_tokenizer(doc.get_augmented_tokens(), gaps), doc.get_change_logs()
+        return self._reverse_tokenizer(doc.get_augmented_tokens(),gaps)
 
 class MyKeyboardAug(nac.KeyboardAug):
     def __init__(self, name='MyKeyboardAug', aug_char_min=1, aug_char_max=10, aug_char_p=0.3,
