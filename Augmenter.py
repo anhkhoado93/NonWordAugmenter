@@ -563,6 +563,7 @@ class MyEditDistanceAugmenter(naw.SpellingAug):
             substitute_token = ''
             if candidate_words:
                 substitute_token = self.sample(candidate_words, 1)[0]
+                if substitute_token == '': substitute_token = original_token
             else:
                 # Unexpected scenario. Adding original token
                 substitute_token = original_token
